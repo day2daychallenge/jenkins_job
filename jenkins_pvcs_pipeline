@@ -1,0 +1,57 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Set Enviroment variable') {
+            steps {
+                echo "PVCS URL: $PCLI_PR"
+                println "net use".execute().getText()
+            }
+        }
+        stage('Cleanup workspace') {
+            steps {
+                dir ('D:\\test\\pvcs\\') {
+                    deleteDir()
+                }
+              bat 'md d:\\test\\pvcs'
+            //   bat "dir $PCLI_PR"
+            }
+        }
+        stage('Get Source Code') {
+            steps {
+                dir ('D:\\test\\pvcs\\') {
+                    bat returnStatus: true, script:"pcli Get -PR$PCLI_PR -id\"PVCS_USER:PVCS_PASS\" -a\"D://test//pvcs\" -o -v$VERSION_LABEL -z \"/Project1/Application/Form\""
+                }
+            }
+        }
+        stage('Build') {
+            steps {
+                dir ('D:\\test\\pvcs\\') {
+                    script {
+                        bat returnStatus: true, script: "FOR %%F in (*.*mb) DO D:\\Oracle\\Middleware\\Oracle_FRHome1\\BIN\\frmcmp.exe userid=SCHEMA_USER/SCHEMA_PASS@DATABASE batch=y module=%%F"
+                    }
+                }
+            }
+        }
+        stage('Backup') {
+            steps {
+                dir ('D:\\test\\pvcs\\') {
+                    script {
+                        bat returnStatus: true, script: "if exist *.*mx (if not exist \"%cd%\\backup\\\" mkdir \"%cd%\\backup\\\")"
+                        bat returnStatus: true, script: "FOR %%x IN (*.*mx) DO (if exist %%~nx.err del %%~nx.err)"
+                        bat returnStatus: true, script: "FOR %%x IN (*.*mx) DO (if exist \"${QAEXE}\\%%x\" copy \"${QAEXE}\\%%x\" \"%cd%\\backup\\\")"
+                  }
+                }
+            }
+        }
+        stage('Deploy to server') {
+            steps {
+                dir ('D:\\test\\pvcs\\') {
+                    script {
+                        bat returnStatus: true, script: "COPY /V /Y *.fmx \"${QAEXE}\""
+                    }
+                }
+            }
+        }
+    }
+}
